@@ -123,22 +123,59 @@ def train(model, data, labels, epochs):
         optimizer.step()
     return model, loss_list
 
+#Validation Function
+def validate(model, data, labels, epochs):
+    model.fc.requires_grad = False
+    model.avgpool.requires_grad = True
+    model.layer4.requires_grad = True
+    model.layer3.requires_grad = True
+
+    optimizer = optim.Adam(model.parameters(), lr=0.00001)
+    loss_list = []
+
+    for i in range(epochs):
+        optimizer.zero_grad()
+
+        logits = model(data)
+        loss = F.cross_entropy(logits, labels)
+        loss_list.append(loss.item())
+
+        loss.backward()
+        optimizer.step()
+    return model, loss_list
+
 
 train_imgs, train_labels, test_imgs, test_labels, val_imgs, val_labels = load_images()
 
-x, loss_list = train(x, train_imgs, train_labels, 50)
+x, loss_list = train(x, train_imgs, train_labels, 200)
 
 test_output = x(test_imgs)
 y_hat = -1 + torch.zeros_like(test_labels, dtype=torch.int64)
 
 #Testing Evaluation
 y_hat[:len(test_imgs)] = torch.argmax(test_output, axis=1)
-print(torch.mean((y_hat == test_labels).float()))
+print("Test Accuracy (No Finetuning):", torch.mean((y_hat == test_labels).float()).detach())
+
+#Finetuning and testing Finetuning
+x, loss_list_val = validate(x, val_imgs, val_labels, 200)
+test_output = x(test_imgs)
+y_hat = -1 + torch.zeros_like(test_labels, dtype=torch.int64)
+y_hat[:len(test_imgs)] = torch.argmax(test_output, axis=1)
+print("Test Accuracy (Finetuning):", torch.mean((y_hat == test_labels).float()).detach())
 
 #Training Loss vs. Epochs Plot
 plt.plot(np.linspace(1, len(loss_list), len(loss_list)), loss_list)
-plt.title('Loss over Epochs')
+plt.title('Loss over Epochs No Fine Tuning')
 plt.xlabel('Epochs')
 plt.ylabel('Loss')
 plt.grid(True)
 plt.show()
+plt.clf()
+
+plt.plot(np.linspace(1, len(loss_list_val), len(loss_list_val)), loss_list_val)
+plt.title('Loss over Epochs Fine Tuning')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.grid(True)
+plt.show()
+
