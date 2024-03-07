@@ -48,9 +48,13 @@ def load_images():
             for i in range(len(aux_img)):
                 try:
                     with I.open('./Data/'+os.listdir('./Data')[folder]+'/'+aux_img[i]) as img:
-                        img = img.convert('L').resize((32, 32))
+                        img = img.resize((32, 32))
+
+                        if img.mode != 'RGB':
+                            img = img.convert('RGB')
+
                         img = np.array(img)
-                        img = np.stack([img]*3, axis=-1)
+                        #img = np.stack([img]*3, axis=-1)
                         aux_img[i] = img
                 except Exception as e:
                     print(f"{i}")
@@ -72,6 +76,7 @@ def load_images():
             test_labels += aux_labels
 
     #Data Normalization RGB -> [0, 1]
+    aux_img = []
     aux_img = train_imgs + test_imgs + val_imgs
     mu = np.mean(aux_img, axis=(0, 1, 2))
     sigma = np.std(aux_img, axis=(0, 1, 2))
