@@ -1,9 +1,10 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torchvision.models import resnet50, ResNet50_Weights
 import torchvision.transforms as T
-import torch
+
 
 import os
 import math as m
@@ -17,8 +18,17 @@ x = resnet50(weights=ResNet50_Weights.DEFAULT)
 for param in x.parameters():
     param.requires_grad = False
 
-x.fc = nn.Linear(2048, 6)
+x.fc = nn.Linear(2048, 9)
 x.fc.requires_grad = True
+
+if torch.cuda.is_available():
+    device = "cuda"
+elif getattr(torch, 'has_mps', False):
+    device = "mps"
+else:
+    device = "cpu"
+
+x = x.to(device)
 
 def load_images():
     #Bunch of arrays for storing and moving data
@@ -33,7 +43,7 @@ def load_images():
 
     #Cycle through various folders for images
     for folder in range(len(sorted(os.listdir('./Data')))):
-        if folder == 0:
+        if folder == 0 or os.listdir('./Data')[folder] == '.DS_Store':
             continue
         else:
             aux_img = os.listdir('./Data/'+os.listdir('./Data')[folder])
@@ -99,7 +109,7 @@ def load_images():
     test_imgs = normalize(test_imgs.permute(0, 3, 1, 2))
     val_imgs = normalize(val_imgs.permute(0, 3, 1, 2))
 
-    return train_imgs, train_labels, test_imgs, test_labels, val_imgs, val_labels
+    return train_imgs.to(device), train_labels.to(device), test_imgs.to(device), test_labels.to(device), val_imgs.to(device), val_labels.to(device)
 
 #Shuffle Images according to Random Noise Generation
 def shuffle_imgs(imgs, labels):
@@ -146,7 +156,6 @@ def validate(model, data, labels, epochs):
 
 
 train_imgs, train_labels, test_imgs, test_labels, val_imgs, val_labels = load_images()
-
 x, loss_list = train(x, train_imgs, train_labels, 200)
 
 test_output = x(test_imgs)
@@ -154,14 +163,14 @@ y_hat = -1 + torch.zeros_like(test_labels, dtype=torch.int64)
 
 #Testing Evaluation
 y_hat[:len(test_imgs)] = torch.argmax(test_output, axis=1)
-print("Test Accuracy (No Finetuning):", torch.mean((y_hat == test_labels).float()).detach())
+print("Test Accuracy (No Finetuning):", torch.mean((y_hat == test_labels).float()).detach().item() * 100, '%')
 
 #Finetuning and testing Finetuning
 x, loss_list_val = validate(x, val_imgs, val_labels, 200)
 test_output = x(test_imgs)
 y_hat = -1 + torch.zeros_like(test_labels, dtype=torch.int64)
 y_hat[:len(test_imgs)] = torch.argmax(test_output, axis=1)
-print("Test Accuracy (Finetuning):", torch.mean((y_hat == test_labels).float()).detach())
+print("Test Accuracy (Finetuning):", torch.mean((y_hat == test_labels).float()).detach().item() * 100, '%')
 
 #Training Loss vs. Epochs Plot
 plt.plot(np.linspace(1, len(loss_list), len(loss_list)), loss_list)
@@ -178,4 +187,3 @@ plt.xlabel('Epochs')
 plt.ylabel('Loss')
 plt.grid(True)
 plt.show()
-
