@@ -41,6 +41,8 @@ def load_images():
     val_imgs = []
     val_labels = []
 
+    crop = T.CenterCrop((128, 128))
+
     #Cycle through various folders for images
     for folder in range(len(sorted(os.listdir('./Data')))):
         if folder == 0 or os.listdir('./Data')[folder] == '.DS_Store':
@@ -58,7 +60,7 @@ def load_images():
             for i in range(len(aux_img)):
                 try:
                     with I.open('./Data/'+os.listdir('./Data')[folder]+'/'+aux_img[i]) as img:
-                        img = img.resize((32, 32))
+                        img = crop(img)
 
                         if img.mode != 'RGB':
                             img = img.convert('RGB')
@@ -119,7 +121,7 @@ def shuffle_imgs(imgs, labels):
 
 #Training Method with Adam Optimizer
 def train(model, data, labels, epochs):
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=0.01)
     loss_list = []
 
     for i in range(epochs):
@@ -140,7 +142,7 @@ def validate(model, data, labels, epochs):
     model.layer4.requires_grad = True
     model.layer3.requires_grad = True
 
-    optimizer = optim.Adam(model.parameters(), lr=0.00001)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
     loss_list = []
 
     for i in range(epochs):
