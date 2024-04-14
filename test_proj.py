@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
 from torchvision.models import resnet50, ResNet50_Weights
 import torchvision.transforms as T
 
@@ -18,7 +19,8 @@ x = resnet50(weights=ResNet50_Weights.DEFAULT)
 for param in x.parameters():
     param.requires_grad = False
 
-x.fc = nn.Linear(2048, 9)
+x.fc = nn.Linear(2048, 12)
+nn.init.kaiming_uniform_(x.fc.weight, nonlinearity='relu')
 x.fc.requires_grad = True
 
 if torch.cuda.is_available():
@@ -106,12 +108,18 @@ def load_images():
     test_imgs, test_labels = shuffle_imgs(test_imgs, test_labels)
     val_imgs, val_labels = shuffle_imgs(val_imgs, val_labels)
 
+    print(val_labels.shape)
+
     #Normalize and Reorder Data for Processing
     train_imgs = normalize(train_imgs.permute(0, 3, 1, 2))
     test_imgs = normalize(test_imgs.permute(0, 3, 1, 2))
     val_imgs = normalize(val_imgs.permute(0, 3, 1, 2))
 
-    return train_imgs.to(device), train_labels.to(device), test_imgs.to(device), test_labels.to(device), val_imgs.to(device), val_labels.to(device)
+    train_set, test_set, val_set = TensorDataset(train_imgs, train_labels), TensorDataset(test_imgs, test_labels), TensorDataset(val_imgs, val_labels)
+
+    trainloader, testloader, valloader = DataLoader(dataset=train_set, shuffle=True, batch_size=128), DataLoader(dataset=test_set, shuffle=True, batch_size=128), DataLoader(dataset=val_set, shuffle=True, batch_size=128)
+
+    return trainloader, testloader, valloader
 
 #Shuffle Images according to Random Noise Generation
 def shuffle_imgs(imgs, labels):
@@ -120,23 +128,43 @@ def shuffle_imgs(imgs, labels):
    return imgs[shuffle], labels[shuffle]
 
 #Training Method with Adam Optimizer
-def train(model, data, labels, epochs):
+def train(model, traindata, valdata, epochs):
     optimizer = optim.Adam(model.parameters(), lr=0.01)
+    lr_optim = optim.lr_scheduler.StepLR(optimizer, step_size=2)
     loss_list = []
+    loss_list_aux = []
 
     for i in range(epochs):
-        optimizer.zero_grad()
+        for imgs, labels in traindata:
+            imgs = imgs.to(device)
+            labels = labels.to(device)
+            optimizer.zero_grad()
 
-        logits = model(data)
-        loss = F.cross_entropy(logits, labels)
-        loss_list.append(loss.item())
+            logits = model(imgs)
+            loss = F.cross_entropy(logits, labels)
+            loss_list_aux.append(loss.item())
 
-        loss.backward()
-        optimizer.step()
+            loss.backward()
+            optimizer.step()
+        loss_list.append(torch.mean(torch.tensor(loss_list_aux)))
+
+        if i%10 == 0:
+            with torch.no_grad():
+                div = 0
+                tot = 0
+                for imgs, labels in valdata:
+                    imgs = imgs.to(device)
+                    labels = labels.to(device)
+                    val_logits = model(imgs)
+                    val_logits = nn.Softmax()(val_logits)
+                    tot += torch.argmax(val_logits, axis=1).float().sum().item()
+                    div += imgs.shape[0]
+            print("Validation Accuracy: ", tot/div*100, "%")
+
     return model, loss_list
 
-#Validation Function
-def validate(model, data, labels, epochs):
+#Finetune Function
+def finetune(model, data, valdata, epochs):
     model.fc.requires_grad = False
     model.avgpool.requires_grad = True
     model.layer4.requires_grad = True
@@ -144,35 +172,61 @@ def validate(model, data, labels, epochs):
 
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     loss_list = []
+    loss_list_aux = []
 
     for i in range(epochs):
-        optimizer.zero_grad()
+        for imgs, labels in data:
+            imgs = imgs.to(device)
+            labels = labels.to(device)
+            optimizer.zero_grad()
 
-        logits = model(data)
-        loss = F.cross_entropy(logits, labels)
-        loss_list.append(loss.item())
+            logits = model(imgs)
+            loss = F.cross_entropy(logits, labels)
+            loss_list_aux.append(loss.item())
 
-        loss.backward()
-        optimizer.step()
+            loss.backward()
+            optimizer.step()
+        
+        loss_list.append(torch.mean(torch.tensor(loss_list_aux)))
+        
+        if i%10 == 0:
+            with torch.no_grad():
+                div = 0
+                tot = 0
+                for imgs, labels in valdata:
+                    imgs = imgs.to(device)
+                    labels = labels.to(device)
+                    val_logits = model(imgs)
+                    val_logits = nn.Softmax()(val_logits)
+                    pred = torch.argmax(val_logits, axis=1)
+                    tot += (pred == labels).float().sum().item()
+                    div += imgs.shape[0]
+                print("Validation Accuracy: ", tot/div*100, "%")
     return model, loss_list
 
+def test(model, data):
+    div = 0
+    total = 0
 
-train_imgs, train_labels, test_imgs, test_labels, val_imgs, val_labels = load_images()
-x, loss_list = train(x, train_imgs, train_labels, 200)
+    for imgs, labels in data:
+        imgs = imgs.to(device)
+        labels = labels.to(device)
+        logits = model(imgs)
+        logits = nn.Softmax()(logits)
+        pred = torch.argmax(logits, axis=1)
+        div += imgs.shape[0]
+        total += (pred == labels).float().sum().item()
+    print("Accuracy: ", total/div*100, "%")
 
-test_output = x(test_imgs)
-y_hat = -1 + torch.zeros_like(test_labels, dtype=torch.int64)
+trainloader, testloader, valloader = load_images()
+test(x, testloader)
 
-#Testing Evaluation
-y_hat[:len(test_imgs)] = torch.argmax(test_output, axis=1)
-print("Test Accuracy (No Finetuning):", torch.mean((y_hat == test_labels).float()).detach().item() * 100, '%')
+x, loss_list = train(x, trainloader, valloader, 200)
+test(x, testloader)
 
 #Finetuning and testing Finetuning
-x, loss_list_val = validate(x, val_imgs, val_labels, 200)
-test_output = x(test_imgs)
-y_hat = -1 + torch.zeros_like(test_labels, dtype=torch.int64)
-y_hat[:len(test_imgs)] = torch.argmax(test_output, axis=1)
-print("Test Accuracy (Finetuning):", torch.mean((y_hat == test_labels).float()).detach().item() * 100, '%')
+x, loss_list_val = finetune(x, trainloader, valloader, 200)
+test(x, testloader)
 
 #Training Loss vs. Epochs Plot
 plt.plot(np.linspace(1, len(loss_list), len(loss_list)), loss_list)
