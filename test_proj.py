@@ -148,17 +148,17 @@ def train(model, traindata, valdata, epochs):
             optimizer.step()
         loss_list.append(torch.mean(torch.tensor(loss_list_aux)))
 
-        if i%10 == 0:
-            with torch.no_grad():
-                div = 0
-                tot = 0
-                for imgs, labels in valdata:
-                    imgs = imgs.to(device)
-                    labels = labels.to(device)
-                    val_logits = model(imgs)
-                    val_logits = nn.Softmax()(val_logits)
-                    tot += torch.argmax(val_logits, axis=1).float().sum().item()
-                    div += imgs.shape[0]
+        with torch.no_grad():
+            div = 0
+            tot = 0
+            for imgs, labels in valdata:
+                imgs = imgs.to(device)
+                labels = labels.to(device)
+                val_logits = model(imgs)
+                val_logits = nn.Softmax()(val_logits)
+                pred = torch.argmax(val_logits, axis=1)
+                tot += (pred == labels).float().sum().item()
+                div += imgs.shape[0]
             print("Validation Accuracy: ", tot/div*100, "%")
 
     return model, loss_list
@@ -189,19 +189,17 @@ def finetune(model, data, valdata, epochs):
         
         loss_list.append(torch.mean(torch.tensor(loss_list_aux)))
         
-        if i%10 == 0:
-            with torch.no_grad():
-                div = 0
-                tot = 0
-                for imgs, labels in valdata:
-                    imgs = imgs.to(device)
-                    labels = labels.to(device)
-                    val_logits = model(imgs)
-                    val_logits = nn.Softmax()(val_logits)
-                    pred = torch.argmax(val_logits, axis=1)
-                    tot += (pred == labels).float().sum().item()
-                    div += imgs.shape[0]
-                print("Validation Accuracy: ", tot/div*100, "%")
+        div = 0
+        tot = 0
+        for imgs, labels in valdata:
+            imgs = imgs.to(device)
+            labels = labels.to(device)
+            val_logits = model(imgs)
+            val_logits = nn.Softmax()(val_logits)
+            pred = torch.argmax(val_logits, axis=1)
+            tot += (pred == labels).float().sum().item()
+            div += imgs.shape[0]
+        print("Validation Accuracy: ", tot/div*100, "%")
     return model, loss_list
 
 def test(model, data):
