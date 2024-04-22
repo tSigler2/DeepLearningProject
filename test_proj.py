@@ -53,11 +53,11 @@ def load_images():
     crop = T.CenterCrop((128, 128))
 
     #Cycle through various folders for images
-    for folder in range(len(sorted(os.listdir('/Users/thomassigler/DeepLearningProject/Data')))):
-        if os.listdir('/Users/thomassigler/DeepLearningProject/Data')[folder] == '.DS_Store':
+    for folder in range(len(sorted(os.listdir('./DeepLearningProject/Data')))):
+        if os.listdir('./DeepLearningProject/Data')[folder] == '.DS_Store':
             continue
         else:
-            aux_img = os.listdir('/Users/thomassigler/DeepLearningProject/Data/'+os.listdir('/Users/thomassigler/DeepLearningProject/Data')[folder])
+            aux_img = os.listdir('./DeepLearningProject/Data/'+os.listdir('./DeepLearningProject/Data')[folder])
 
             for i in range(len(aux_img)):
                 #Remove .DS_Store file from data
@@ -68,7 +68,7 @@ def load_images():
             #Resize Image and Convert Channels
             for i in range(len(aux_img)):
                 try:
-                    with I.open('/Users/thomassigler/DeepLearningProject/Data/'+os.listdir('/Users/thomassigler/DeepLearningProject/Data')[folder]+'/'+aux_img[i]) as img:
+                    with I.open('./DeepLearningProject/Data/'+os.listdir('./DeepLearningProject/Data')[folder]+'/'+aux_img[i]) as img:
                         img = crop(img)
 
                         if img.mode != 'RGB':
@@ -302,8 +302,8 @@ def objective(config):
         checkpoint = None
         if (epoch+1)%5 == 0:
             torch.save(model.state_dict(),
-                       "/Users/thomassigler/DeepLearningProject/TuningCheckpoints/model.pth")
-            checkpoint = Checkpoint.from_directory("/Users/thomassigler/DeepLearningProject/TuningCheckpoints")
+                       "./DeepLearningProject/TuningCheckpoints/model.pth")
+            checkpoint = Checkpoint.from_directory("./DeepLearningProject/TuningCheckpoints")
         train.report({"mean_accuracy": acc}, checkpoint=checkpoint)
         torch.mps.empty_cache()
 

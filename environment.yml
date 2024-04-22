@@ -1,0 +1,22 @@
+name: dsci
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python 3.9.7
+  - pandas
+  - numpy
+  - matplotlib
+  - seaborn
+  - scikit-learn
+  - jupyterlab
+  - ipywidgets
+  - pyarrow
+  - notebook
+  - PIL
+  - pip
+  - pip:
+    - torch
+    - torchvision
+    - ray
+    
