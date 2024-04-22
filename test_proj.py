@@ -6,7 +6,6 @@ from torch.utils.data import DataLoader, TensorDataset
 from torchvision.models import resnet50, ResNet50_Weights
 import torchvision.transforms as T
 
-
 import os
 import math as m
 from PIL import Image as I
@@ -54,11 +53,11 @@ def load_images():
     crop = T.CenterCrop((128, 128))
 
     #Cycle through various folders for images
-    for folder in range(len(sorted(os.listdir('./DeepLearningProject/Data')))):
-        if os.listdir('./DeepLearningProject/Data')[folder] == '.DS_Store':
+    for folder in range(len(sorted(os.listdir('/Users/thomassigler/DeepLearningProject/Data')))):
+        if os.listdir('/Users/thomassigler/DeepLearningProject/Data')[folder] == '.DS_Store':
             continue
         else:
-            aux_img = os.listdir('./DeepLearningProject/Data/'+os.listdir('./DeepLearningProject/Data')[folder])
+            aux_img = os.listdir('/Users/thomassigler/DeepLearningProject/Data/'+os.listdir('/Users/thomassigler/DeepLearningProject/Data')[folder])
 
             for i in range(len(aux_img)):
                 #Remove .DS_Store file from data
@@ -69,7 +68,7 @@ def load_images():
             #Resize Image and Convert Channels
             for i in range(len(aux_img)):
                 try:
-                    with I.open('./DeepLearningProject/Data/'+os.listdir('./DeepLearningProject/Data')[folder]+'/'+aux_img[i]) as img:
+                    with I.open('/Users/thomassigler/DeepLearningProject/Data/'+os.listdir('/Users/thomassigler/DeepLearningProject/Data')[folder]+'/'+aux_img[i]) as img:
                         img = crop(img)
 
                         if img.mode != 'RGB':
@@ -138,6 +137,7 @@ def shuffle_imgs(imgs, labels):
 #Training Method with Adam Optimizer
 def trainfunc(model, traindata, valdata, epochs):
     optimizer = optim.Adam(model.parameters(), lr=0.006349288161821683, eps=6.5131448417080975e-09)
+    #optimizer = optim.SGD(model.parameters(), lr=0.006349288161821683)
     lr_optim = optim.lr_scheduler.StepLR(optimizer, step_size=2)
     loss_list = []
     loss_list_aux = []
@@ -302,16 +302,16 @@ def objective(config):
         checkpoint = None
         if (epoch+1)%5 == 0:
             torch.save(model.state_dict(),
-                       "./DeepLearningProject/TuningCheckpoints/model.pth")
-            checkpoint = Checkpoint.from_directory("./DeepLearningProject/TuningCheckpoints")
+                       "/Users/thomassigler/DeepLearningProject/TuningCheckpoints/model.pth")
+            checkpoint = Checkpoint.from_directory("/Users/thomassigler/DeepLearningProject/TuningCheckpoints")
         train.report({"mean_accuracy": acc}, checkpoint=checkpoint)
         torch.mps.empty_cache()
 
-search_space = {"lr": tune.loguniform(1e-4, 1e-1), "eps": tune.loguniform(1e-10, 1e-6), "l1": tune.randint(50, 2048), "l2": tune.randint(12, 100)}
-tuner = tune.Tuner(objective, tune_config=tune.TuneConfig(metric="mean_accuracy", mode="max", search_alg=OptunaSearch(), num_samples=2), param_space=search_space)
+#search_space = {"lr": tune.loguniform(1e-4, 1e-1), "eps": tune.loguniform(1e-10, 1e-6), "l1": tune.randint(50, 2048), "l2": tune.randint(12, 100)}
+#tuner = tune.Tuner(objective, tune_config=tune.TuneConfig(metric="mean_accuracy", mode="max", search_alg=OptunaSearch(), num_samples=2), param_space=search_space)
 
-results = tuner.fit()
-print("Best Config is: ", results.get_best_result().config)
+#results = tuner.fit()
+#print("Best Config is: ", results.get_best_result().config)
 
 trainloader, testloader, valloader = load_images()
 test(x, testloader)
@@ -329,7 +329,7 @@ test(x, testloader)
 
 #Training Loss vs. Epochs Plot
 plt.plot(np.linspace(1, len(loss_list), len(loss_list)), loss_list)
-plt.title('Loss over Epochs No Fine Tuning')
+plt.title('Training and Validation Loss over Epochs No Fine Tuning')
 plt.xlabel('Epochs')
 plt.ylabel('Loss')
 plt.grid(True)
